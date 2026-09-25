@@ -16,7 +16,7 @@ def tile_count(
     raw_count: ceil(room_area / effective_piece_area)
     order_count: ceil(raw * (1 + waste_pct/100))
     effective piece edge = tile edge - grout_mm/1000; grout 0 keeps legacy numbers.
-    Bench/estimate always pass the live grout; catalog sample uses a separate helper.
+    Bench and catalog sample share the same effective-edge basis.
     """
     area = float(room_l) * float(room_w)
     eff_l, eff_w = effective_edges(tile_l, tile_w, grout_mm)

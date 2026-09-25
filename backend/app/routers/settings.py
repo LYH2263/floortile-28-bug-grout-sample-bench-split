@@ -2,7 +2,6 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.repositories import settings_repo
-# sample catalog cache lives in grout_sample; settings writes do not flush it
 
 router = APIRouter(tags=["settings"])
 

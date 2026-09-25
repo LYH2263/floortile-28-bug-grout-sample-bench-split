@@ -20,8 +20,12 @@ onMounted(async () => {
       <div v-for="t in items" :key="t.id" class="tile-card" :class="{ dirty: t.data_quality === 'dirty' }">
         <strong>{{ t.name }}</strong>
         <span>{{ t.tile_l }} × {{ t.tile_w }} m</span>
-        <span>示例单片 {{ t.sample_piece_m2 ?? t.sample_eff_piece_m2 }} m²</span>
-        <span v-if="t.sample_raw_count != null">示例 raw {{ t.sample_raw_count }} 片</span>
+        <span>名义单砖 {{ t.sample_piece_m2 }} m²</span>
+        <template v-if="t.sample_eff_piece_m2 != null">
+          <span>示例有效单片 {{ t.sample_eff_piece_m2 }} m²（缝宽 {{ t.sample_grout_mm ?? meta.grout ?? 0 }} mm）</span>
+          <span v-if="t.sample_raw_count != null">示例 raw {{ t.sample_raw_count }} 片</span>
+        </template>
+        <em v-else class="alert">当前缝宽下有效边非正，无法示例</em>
         <em v-if="t.data_quality === 'dirty'">无效规格</em>
       </div>
     </div>

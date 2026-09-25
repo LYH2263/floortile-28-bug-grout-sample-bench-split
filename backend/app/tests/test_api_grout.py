@@ -52,6 +52,57 @@ def test_estimate_persist_pins_grout_and_counts():
         assert got["result"]["order_count"] == 83
 
 
+def test_catalog_sample_tracks_live_grout_and_matches_bench():
+    with TestClient(app) as client:
+        # grout 0: sample uses seamless edges, same raw as the bench
+        r = client.get("/api/tiles")
+        assert r.status_code == 200
+        tile = next(t for t in r.json()["items"] if t["id"] == 1)
+        assert tile["sample_grout_mm"] == 0.0
+        assert tile["sample_piece_m2"] == 0.36
+        assert tile["sample_eff_piece_m2"] == 0.36
+        assert tile["sample_raw_count"] == 75
+        bench0 = client.get("/api/estimate", params={"room_id": 1, "tile_id": 1}).json()
+        assert tile["sample_raw_count"] == bench0["raw_count"]
+
+        # only the grout changes: sample recomputes on the next request
+        assert client.post("/api/settings", json={"grout_mm": 2}).status_code == 200
+        tile = next(t for t in client.get("/api/tiles").json()["items"] if t["id"] == 1)
+        assert tile["sample_grout_mm"] == 2.0
+        assert tile["sample_piece_m2"] == 0.36  # nominal edges untouched
+        assert tile["sample_eff_piece_m2"] == 0.3576
+        assert tile["sample_raw_count"] == 76
+        bench2 = client.get(
+            "/api/estimate", params={"room_id": 1, "tile_id": 1, "grout_mm": 2}
+        ).json()
+        assert tile["sample_eff_piece_m2"] == bench2["eff_piece_m2"]
+        assert tile["sample_raw_count"] == bench2["raw_count"]
+
+        # back to zero: sample and bench realign on the seamless basis
+        assert client.post("/api/settings", json={"grout_mm": 0}).status_code == 200
+        tile = next(t for t in client.get("/api/tiles").json()["items"] if t["id"] == 1)
+        assert tile["sample_grout_mm"] == 0.0
+        assert tile["sample_eff_piece_m2"] == 0.36
+        assert tile["sample_raw_count"] == 75
+        bench0b = client.get("/api/estimate", params={"room_id": 1, "tile_id": 1}).json()
+        assert tile["sample_raw_count"] == bench0b["raw_count"]
+
+
+def test_catalog_sample_with_wide_grout_marks_tile_instead_of_error():
+    with TestClient(app) as client:
+        assert client.post("/api/settings", json={"grout_mm": 600}).status_code == 200
+        r = client.get("/api/tiles")
+        assert r.status_code == 200
+        tile = next(t for t in r.json()["items"] if t["id"] == 1)
+        assert tile["sample_eff_piece_m2"] is None
+        assert tile["sample_raw_count"] is None
+        assert tile["sample_error"]
+        # dirty zero-edge tile must also list without a 500
+        dirty = next(t for t in r.json()["items"] if t["data_quality"] == "dirty")
+        assert dirty["sample_raw_count"] is None
+        client.post("/api/settings", json={"grout_mm": 0})
+
+
 def test_invalid_grout_fails_and_writes_no_history():
     with TestClient(app) as client:
         before = _runs_count()
